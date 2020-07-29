@@ -1,0 +1,80 @@
+server:
+  port: 8084
+
+#日志
+logging:
+  config: classpath:log4j2-spring.xml
+# Mybatis-Plus Config
+mybatis-plus:
+  # 配置slq打印日志
+  configuration:
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+    map-underscore-to-camel-case: true
+    cache-enabled: true
+  mapper-locations: classpath:/mapper/*Mapper.xml
+  typeAliasesPackage: com.example.sharding.domain.entity
+  global-config:
+    id-type: 2
+    field-strategy: 0
+    db-column-underline: true
+    refresh-mapper: true
+spring:
+  shardingsphere:
+
+    # 配置多个数据源
+    datasource:
+      names: ds0,ds1
+      ds0:
+        type: com.alibaba.druid.pool.DruidDataSource
+        driver-class-name: com.mysql.jdbc.Driver
+        url: jdbc:mysql://192.168.35.94:3306/ds_0?characterEncoding=utf-8&useSSL=false
+        username: root
+        password: Root#1234567
+      ds1:
+        type: com.alibaba.druid.pool.DruidDataSource
+        driver-class-name: com.mysql.jdbc.Driver
+        url: jdbc:mysql://192.168.35.94:3306/ds_1?characterEncoding=utf-8&useSSL=false
+        username: root
+        password: Root#1234567
+
+    # 数据库垂直拆分（不同的表在不同的库中）
+    sharding:
+      default-database-strategy:
+        inline:
+          sharding-column: id
+          algorithm-expression: ds$->{id % 2}
+      tables:
+        user_info:
+#          defaultDataSourceName: ds0.user_info
+          # 配置单表数据源
+          actual-data-nodes: ds$->{0..1}.user_info_$->{0..1}
+          # 配置主键策略
+#          key-generator-column-name: id
+          key-generator:
+            type: SNOWFLAKE
+            column: id
+          table-strategy:
+            # inline 表达式配置分表
+            inline:
+              sharding-column: id
+              algorithm-expression: user_info_$->{id % 2}
+        cs_order:
+          # 配置单表数据源(分表处理)
+          actual-data-nodes: ds1.cs_order_$->{0..1}
+          # 配置主键策略
+          key-generator-column-name: id
+          key-generator:
+                  type: SNOWFLAKE
+                  column: id
+
+          ## 分表策略
+          table-strategy:
+            # inline 表达式配置分表
+            inline:
+              sharding-column: node
+              algorithm-expression: cs_order_$->{node}
+
+             # 自定义分表算法
+#            standard:
+#              sharding-column: node
+#              precise-algorithm-class-name: com.example.sharding.domain.algorithm.CsOrderTableShardingAlgorithm
